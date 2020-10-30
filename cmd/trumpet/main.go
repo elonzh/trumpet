@@ -11,7 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/elonzh/trumpet/transformers"
+	"github.com/elonzh/trumpet/transformers/builtins"
 )
 
 func main() {
@@ -23,7 +23,7 @@ func main() {
 			c.String(http.StatusBadRequest, err.Error())
 			return
 		}
-		transformer, ok := transformers.Get(transformerName)
+		transformer, ok := builtins.Get(transformerName)
 		if !ok {
 			c.String(http.StatusNotFound, "no such transformer `%s`", transformer)
 			return

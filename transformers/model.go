@@ -2,23 +2,28 @@ package transformers
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path"
 	"strings"
 
 	"go.starlark.net/starlark"
 	"go.starlark.net/starlarkjson"
 )
 
-const transformFunctionName = "transform"
+const (
+	FileSuffix            = ".star"
+	transformFunctionName = "transform"
+)
 
 type Transformer struct {
-	name      string
+	Name      string
 	src       interface{}
 	thread    *starlark.Thread
 	transFunc starlark.Value
 }
 
 func (t *Transformer) String() string {
-	return fmt.Sprintf("Transformer{name: %s}", t.name)
+	return fmt.Sprintf("Transformer{Name: %s}", t.Name)
 }
 
 func (t *Transformer) Exec(raw string) (string, error) {
@@ -35,10 +40,10 @@ func (t *Transformer) Exec(raw string) (string, error) {
 }
 
 func NewTransformer(filename string, src interface{}) (*Transformer, error) {
-	if !strings.HasSuffix(filename, suffix) {
-		return nil, fmt.Errorf("filename %s has no suffix %s", filename, suffix)
+	if !strings.HasSuffix(filename, FileSuffix) {
+		return nil, fmt.Errorf("filename %s has no suffix %s", filename, FileSuffix)
 	}
-	name := strings.TrimSuffix(filename, suffix)
+	name := strings.TrimSuffix(filename, FileSuffix)
 	thread := &starlark.Thread{
 		Name: name,
 	}
@@ -54,10 +59,32 @@ func NewTransformer(filename string, src interface{}) (*Transformer, error) {
 		return nil, fmt.Errorf("transformer not found")
 	}
 	t := &Transformer{
-		name:      name,
+		Name:      name,
 		src:       src,
 		thread:    thread,
 		transFunc: transFunc,
 	}
 	return t, nil
+}
+
+func Load(dir string) (map[string]*Transformer, error) {
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	rv := make(map[string]*Transformer)
+	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
+		if strings.HasSuffix(f.Name(), FileSuffix) {
+			filename := path.Join(dir, f.Name())
+			t, err := NewTransformer(filename, nil)
+			if err != nil {
+				return nil, fmt.Errorf("error when load %s: %w", filename, err)
+			}
+			rv[t.Name] = t
+		}
+	}
+	return rv, nil
 }
