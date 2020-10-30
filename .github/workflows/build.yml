@@ -1,4 +1,4 @@
-name: goreleaser
+name: build
 
 on:
   push:
@@ -16,6 +16,13 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: 1.15
+      - name: Cache Go modules
+        uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
       - name: Docker Login
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
