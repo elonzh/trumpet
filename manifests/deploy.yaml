@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trumpet
+  labels:
+    app: trumpet
+spec:
+  selector:
+    matchLabels:
+      app: trumpet
+  template:
+    metadata:
+      labels:
+        app: trumpet
+    spec:
+      containers:
+        - name: trumpet
+          image: elonzh/trumpet
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 100m
+              memory: 10Mi
+            limits:
+              cpu: 500m
+              memory: 100Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trumpet
+  labels:
+    app: trumpet
+spec:
+  type: ClusterIP
+  selector:
+    app: trumpet
+  ports:
+    - name: trumpet
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
