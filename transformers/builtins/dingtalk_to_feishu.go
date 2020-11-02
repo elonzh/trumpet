@@ -17,6 +17,12 @@ def transform(raw):
 	body = {}
 	if msg_type == "text":
 		body = {"msg_type": "text", "content": {"text": origin_body["text"]["content"]}}
+	elif msg_type == "markdown":
+		title = origin_body["markdown"].get("title")
+		text = origin_body["markdown"].get("text", "")
+		if title:
+			text = title + "\n" + text
+		body = {"msg_type": "text", "content": {"text": text}}
 	return json.encode(body)
 `
 	dingtalkToFeishu, err := transformers.NewTransformer(name, src)
