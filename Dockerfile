@@ -1,3 +1,7 @@
 FROM alpine
-ENTRYPOINT ["/bin/trumpet"]
-COPY trumpet /bin/trumpet
+ENV GIN_MODE=release
+RUN mkdir /app
+WORKDIR /app
+ENTRYPOINT [ "/app/trumpet" ]
+CMD [ "serve" ]
+COPY trumpet /app/trumpet

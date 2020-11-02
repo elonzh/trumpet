@@ -17,9 +17,9 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${workspaceFolder}/cmd/trumpet/main.go",
+            "program": "${workspaceFolder}/main.go",
             "env": {},
-            "args": [],
+            "args": ["--logLevel", "debug", "serve"],
             "output": "${workspaceFolder}/dist/trumpet"
         }
     ]

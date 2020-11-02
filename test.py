@@ -12,7 +12,7 @@ dingtalk_webhook = os.getenv("TRUMPET_DINGTALK_WEBHOOK")
 
 class TestStringMethods(unittest.TestCase):
     def test_dingtalk_to_feishu(self):
-        url = f"http://127.0.0.1:8080/transformers/dingtalk_to_feishu?trumpet_to={feishu_webhook}"
+        url = f"http://127.0.0.1:8080/transformers/dingtalk-to-feishu?trumpet_to={feishu_webhook}"
         cases = [
             {"msgtype": "text", "text": {"content": "快乐小神仙"}},
             {
@@ -37,7 +37,7 @@ class TestStringMethods(unittest.TestCase):
             assert resp.ok
 
     def test_feishu_to_dingtalk(self):
-        url = f"http://127.0.0.1:8080/transformers/feishu_to_dingtalk?trumpet_to={dingtalk_webhook}"
+        url = f"http://127.0.0.1:8080/transformers/feishu-to-dingtalk?trumpet_to={dingtalk_webhook}"
         cases = [{"msg_type": "text", "content": {"text": "快乐小神仙"}}]
         for case in cases:
             resp = requests.post(url, json=case)

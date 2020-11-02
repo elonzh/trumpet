@@ -2,16 +2,13 @@ package transformers
 
 import (
 	"fmt"
-	"io/ioutil"
-	"path"
-	"strings"
+	"regexp"
 
 	"go.starlark.net/starlark"
 	"go.starlark.net/starlarkjson"
 )
 
 const (
-	FileSuffix            = ".star"
 	transformFunctionName = "transform"
 )
 
@@ -39,18 +36,26 @@ func (t *Transformer) Exec(raw string) (string, error) {
 	return rv, nil
 }
 
-func NewTransformer(filename string, src interface{}) (*Transformer, error) {
-	if !strings.HasSuffix(filename, FileSuffix) {
-		return nil, fmt.Errorf("filename %s has no suffix %s", filename, FileSuffix)
+var namePattern = regexp.MustCompile("^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+func validateName(s string) error {
+	if namePattern.MatchString(s) {
+		return nil
 	}
-	name := strings.TrimSuffix(filename, FileSuffix)
+	return fmt.Errorf("%s is not a valid url slug as transformer name", s)
+}
+
+func NewTransformer(name string, src interface{}) (*Transformer, error) {
+	if err := validateName(name); err != nil {
+		return nil, err
+	}
 	thread := &starlark.Thread{
 		Name: name,
 	}
 	predeclared := starlark.StringDict{
 		"json": starlarkjson.Module,
 	}
-	globals, err := starlark.ExecFile(thread, filename, src, predeclared)
+	globals, err := starlark.ExecFile(thread, name, src, predeclared)
 	if err != nil {
 		return nil, err
 	}
@@ -65,26 +70,4 @@ func NewTransformer(filename string, src interface{}) (*Transformer, error) {
 		transFunc: transFunc,
 	}
 	return t, nil
-}
-
-func Load(dir string) (map[string]*Transformer, error) {
-	files, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-	rv := make(map[string]*Transformer)
-	for _, f := range files {
-		if f.IsDir() {
-			continue
-		}
-		if strings.HasSuffix(f.Name(), FileSuffix) {
-			filename := path.Join(dir, f.Name())
-			t, err := NewTransformer(filename, nil)
-			if err != nil {
-				return nil, fmt.Errorf("error when load %s: %w", filename, err)
-			}
-			rv[t.Name] = t
-		}
-	}
-	return rv, nil
 }
