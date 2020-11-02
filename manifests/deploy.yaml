@@ -38,6 +38,7 @@ spec:
               memory: 100Mi
           volumeMounts:
             - name: config
+              subPath: config.yaml
               mountPath: /app/config.yaml
       volumes:
         - name: config
