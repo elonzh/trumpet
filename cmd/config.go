@@ -62,28 +62,28 @@ func registerTransformers(m map[string]string) {
 func init() {
 	builtinTransformers := map[string]string{
 		"feishu-to-dingtalk": `
-def transform(raw):
-	origin_body = json.decode(raw)
-	msg_type = origin_body['msg_type']
+def transform(request):
+	msg_type = request["body"]["msg_type"]
 	body = {}
 	if msg_type == "text":
-		body = {"msgtype": "text", "text": {"content": origin_body["content"]["text"]}}
-	return json.encode(body)
+		body = {"msgtype": "text", "text": {"content": request["body"]["content"]["text"]}}
+	request["body"] = body
+	return request
 `,
 		"dingtalk-to-feishu": `
-def transform(raw):
-	origin_body = json.decode(raw)
-	msg_type = origin_body['msgtype']
+def transform(request):
+	msg_type = request["body"]["msgtype"]
 	body = {}
 	if msg_type == "text":
-		body = {"msg_type": "text", "content": {"text": origin_body["text"]["content"]}}
+		body = {"msg_type": "text", "content": {"text": request["body"]["text"]["content"]}}
 	elif msg_type == "markdown":
-		title = origin_body["markdown"].get("title")
-		text = origin_body["markdown"].get("text", "")
+		title = request["body"]["markdown"].get("title")
+		text = request["body"]["markdown"].get("text", "")
 		if title:
 			text = title + "\n" + text
 		body = {"msg_type": "text", "content": {"text": text}}
-	return json.encode(body)
+	request["body"] = body
+	return request
 `,
 	}
 	registerTransformers(builtinTransformers)

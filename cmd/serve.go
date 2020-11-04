@@ -2,16 +2,47 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
+
+const realWebHookQuery = "trumpet_to"
+
+var proxy = httputil.ReverseProxy{
+	Director: func(request *http.Request) {
+		// already checked
+		trumpetTo, _ := url.Parse(request.URL.Query().Get(realWebHookQuery))
+		request.Host = trumpetTo.Host
+		request.URL = trumpetTo
+		request.RequestURI = ""
+		request.Header["X-Forwarded-For"] = nil
+		request.ContentLength = -1
+		delete(request.Header, "Content-Length")
+		if cfg.LogLevel >= logrus.DebugLevel {
+			req, err := httputil.DumpRequest(request, true)
+			fmt.Printf(
+				"\n-------------------- Request --------------------\n%s\nDumpRequestError:%s\n",
+				req, err,
+			)
+		}
+	},
+	ModifyResponse: func(response *http.Response) error {
+		if cfg.LogLevel >= logrus.DebugLevel {
+			resp, err := httputil.DumpResponse(response, true)
+			fmt.Printf(
+				"\n-------------------- Request --------------------\n%s\nDumpResponseError:%s\n",
+				resp, err,
+			)
+		}
+		return nil
+	},
+}
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
@@ -20,8 +51,12 @@ var serveCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r := gin.Default()
 		r.POST("/transformers/:transformer", func(c *gin.Context) {
+			if c.ContentType() != binding.MIMEJSON {
+				c.String(http.StatusBadRequest, "currently we only accept `%s` content", binding.MIMEJSON)
+				return
+			}
 			transformerName := c.Param("transformer")
-			trumpetTo, err := url.Parse(c.Query("trumpet_to"))
+			_, err := url.Parse(c.Query(realWebHookQuery))
 			if err != nil {
 				c.String(http.StatusBadRequest, err.Error())
 				return
@@ -31,46 +66,12 @@ var serveCmd = &cobra.Command{
 				c.String(http.StatusNotFound, "no such transformer `%s`", transformer)
 				return
 			}
-			raw, err := ioutil.ReadAll(c.Request.Body)
-			if err != nil {
-				c.String(http.StatusBadRequest, err.Error())
-				return
-			}
-			rawBody, err := transformer.Exec(string(raw))
+			req, err := transformer.Exec(c.Request)
 			if err != nil {
 				c.String(http.StatusInternalServerError, "error when transform data: %s", err)
 				return
 			}
-			proxy := httputil.ReverseProxy{
-				Director: func(request *http.Request) {
-					request.Host = trumpetTo.Host
-					request.URL = trumpetTo
-					request.RequestURI = ""
-					request.Header["X-Forwarded-For"] = nil
-					request.ContentLength = -1
-					delete(request.Header, "Content-Length")
-
-					request.Body = ioutil.NopCloser(strings.NewReader(rawBody))
-					if cfg.LogLevel >= logrus.DebugLevel {
-						req, err := httputil.DumpRequest(request, true)
-						fmt.Printf(
-							"\n-------------------- Request --------------------\n%s\nDumpRequestError:%s\n",
-							req, err,
-						)
-					}
-				},
-				ModifyResponse: func(response *http.Response) error {
-					if cfg.LogLevel >= logrus.DebugLevel {
-						resp, err := httputil.DumpResponse(response, true)
-						fmt.Printf(
-							"\n-------------------- Request --------------------\n%s\nDumpResponseError:%s\n",
-							resp, err,
-						)
-					}
-					return nil
-				},
-			}
-			proxy.ServeHTTP(c.Writer, c.Request)
+			proxy.ServeHTTP(c.Writer, req)
 		})
 		return r.Run()
 	},
