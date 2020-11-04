@@ -63,27 +63,36 @@ func init() {
 	builtinTransformers := map[string]string{
 		"feishu-to-dingtalk": `
 def transform(request):
-	msg_type = request["body"]["msg_type"]
-	body = {}
-	if msg_type == "text":
-		body = {"msgtype": "text", "text": {"content": request["body"]["content"]["text"]}}
-	request["body"] = body
-	return request
+    msg_type = request["body"]["msg_type"]
+    body = {}
+    if msg_type == "text":
+        body = {
+            "msgtype": "text",
+            "text": {"content": request["body"]["content"]["text"]},
+        }
+    request["body"] = body
+    return request
 `,
 		"dingtalk-to-feishu": `
 def transform(request):
-	msg_type = request["body"]["msgtype"]
-	body = {}
-	if msg_type == "text":
-		body = {"msg_type": "text", "content": {"text": request["body"]["text"]["content"]}}
-	elif msg_type == "markdown":
-		title = request["body"]["markdown"].get("title")
-		text = request["body"]["markdown"].get("text", "")
-		if title:
-			text = title + "\n" + text
-		body = {"msg_type": "text", "content": {"text": text}}
-	request["body"] = body
-	return request
+    msg_type = request["body"]["msgtype"]
+    body = {}
+    if msg_type == "text":
+        body = {
+            "msg_type": "text",
+            "content": {"text": request["body"]["text"]["content"]},
+        }
+    elif msg_type == "markdown":
+        body = {"msg_type": "interactive", "card": {"elements": []}}
+        title = request["body"]["markdown"].get("title")
+        if title:
+            body["card"]["header"] = {"title": {"content": title, "tag": "plain_text"}}
+        text = request["body"]["markdown"].get("text", "")
+        body["card"]["elements"].append(
+            {"tag": "div", "text": {"content": text, "tag": "lark_md"}}
+        )
+    request["body"] = body
+    return request
 `,
 	}
 	registerTransformers(builtinTransformers)
