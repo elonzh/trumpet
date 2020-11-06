@@ -4,7 +4,8 @@ before:
   hooks:
     - go mod tidy
 builds:
-  - env:
+  - main: ./main.go
+    env:
       - CGO_ENABLED=0
     goos:
       - linux
@@ -12,7 +13,21 @@ builds:
       - windows
     goarch:
       - amd64
-    main: ./main.go
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{ .CommitDate }}
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - Merge pull request
+      - Merge branch
+      - go mod tidy
 
 archives:
   - format_overrides:

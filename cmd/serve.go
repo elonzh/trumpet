@@ -76,7 +76,3 @@ var serveCmd = &cobra.Command{
 		return r.Run()
 	},
 }
-
-func init() {
-	rootCmd.AddCommand(serveCmd)
-}

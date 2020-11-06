@@ -22,12 +22,8 @@ THE SOFTWARE.
 package cmd
 
 import (
-	"os"
-
 	"github.com/elonzh/trumpet/transformers"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var BuiltinTransformers = []*transformers.Transformer{
@@ -110,50 +106,4 @@ func (c *Config) LoadAllTransformers() {
 func (c *Config) GetTransformer(name string) (*transformers.Transformer, bool) {
 	t, ok := c.m[name]
 	return t, ok
-}
-
-func initConfig() {
-	if cfgFile != "" {
-		viper.SetConfigFile(cfgFile)
-	} else {
-		viper.AddConfigPath(".")
-		viper.SetConfigName("config")
-	}
-	var err error
-	if err = viper.ReadInConfig(); os.IsNotExist(err) {
-		logrus.WithError(err).Fatalln()
-	}
-	logrus.WithField("ConfigFile", viper.ConfigFileUsed()).Infoln("read in config")
-	err = viper.Unmarshal(cfg)
-	if err != nil {
-		logrus.WithError(err).Fatalln("error when unmarshal config")
-	}
-	level, err := logrus.ParseLevel(cfg.LogLevel)
-	if err != nil {
-		logrus.WithError(err).Fatalln()
-	}
-	logrus.SetLevel(level)
-	if level >= logrus.DebugLevel {
-		logrus.WithField("Config", cfg).Debug()
-	}
-
-	cfg.LoadAllTransformers()
-}
-
-var (
-	cfg = &Config{
-		LogLevel: logrus.InfoLevel.String(),
-	}
-)
-
-// configCmd represents the config command
-var configCmd = &cobra.Command{
-	Use:   "config",
-	Short: "",
-	Long:  ``,
-}
-
-func init() {
-	rootCmd.AddCommand(configCmd)
-	cobra.OnInitialize(initConfig)
 }

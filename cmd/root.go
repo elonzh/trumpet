@@ -22,30 +22,72 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"os"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-var cfgFile string
-
-var rootCmd = &cobra.Command{
-	Use:   "trumpet",
-	Short: "🎺simple webhook transform server",
-	Long:  ``,
-}
-
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		logrus.WithError(err).Fatalln()
+var (
+	cfg = &Config{
+		LogLevel: logrus.InfoLevel.String(),
 	}
-}
+)
 
-func init() {
+func newRootCmd(version string) *cobra.Command {
+	var cfgFile string
+	var rootCmd = &cobra.Command{
+		Version: version,
+		Use:     "trumpet",
+		Short:   "🎺simple webhook transform server",
+		Long:    ``,
+	}
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is ./config.yaml)")
 	rootCmd.PersistentFlags().String("logLevel", "info", "")
 	err := viper.BindPFlag("logLevel", rootCmd.PersistentFlags().Lookup("logLevel"))
 	if err != nil {
 		panic(err)
 	}
+
+	cobra.OnInitialize(func() {
+		initConfig(cfgFile)
+	})
+	rootCmd.AddCommand(serveCmd)
+	return rootCmd
+}
+
+func Execute(version string) {
+	rootCmd := newRootCmd(version)
+	if err := rootCmd.Execute(); err != nil {
+		logrus.WithError(err).Fatalln()
+	}
+}
+
+func initConfig(cfgFile string) {
+	if cfgFile != "" {
+		viper.SetConfigFile(cfgFile)
+	} else {
+		viper.AddConfigPath(".")
+		viper.SetConfigName("config")
+	}
+	var err error
+	if err = viper.ReadInConfig(); os.IsNotExist(err) {
+		logrus.WithError(err).Fatalln()
+	}
+	logrus.WithField("ConfigFile", viper.ConfigFileUsed()).Infoln("read in config")
+	err = viper.Unmarshal(cfg)
+	if err != nil {
+		logrus.WithError(err).Fatalln("error when unmarshal config")
+	}
+	level, err := logrus.ParseLevel(cfg.LogLevel)
+	if err != nil {
+		logrus.WithError(err).Fatalln()
+	}
+	logrus.SetLevel(level)
+	if level >= logrus.DebugLevel {
+		logrus.WithField("Config", cfg).Debug()
+	}
+
+	cfg.LoadAllTransformers()
 }
