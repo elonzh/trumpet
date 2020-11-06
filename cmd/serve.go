@@ -24,7 +24,7 @@ var proxy = httputil.ReverseProxy{
 		request.Header["X-Forwarded-For"] = nil
 		request.ContentLength = -1
 		delete(request.Header, "Content-Length")
-		if cfg.LogLevel >= logrus.DebugLevel {
+		if logrus.GetLevel() >= logrus.DebugLevel {
 			req, err := httputil.DumpRequest(request, true)
 			fmt.Printf(
 				"\n-------------------- Request --------------------\n%s\nDumpRequestError:%s\n",
@@ -33,7 +33,7 @@ var proxy = httputil.ReverseProxy{
 		}
 	},
 	ModifyResponse: func(response *http.Response) error {
-		if cfg.LogLevel >= logrus.DebugLevel {
+		if logrus.GetLevel() >= logrus.DebugLevel {
 			resp, err := httputil.DumpResponse(response, true)
 			fmt.Printf(
 				"\n-------------------- Request --------------------\n%s\nDumpResponseError:%s\n",
@@ -61,7 +61,7 @@ var serveCmd = &cobra.Command{
 				c.String(http.StatusBadRequest, err.Error())
 				return
 			}
-			transformer, ok := cfg.Transformers[transformerName]
+			transformer, ok := cfg.GetTransformer(transformerName)
 			if !ok {
 				c.String(http.StatusNotFound, "no such transformer `%s`", transformer)
 				return

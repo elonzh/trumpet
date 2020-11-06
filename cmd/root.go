@@ -22,8 +22,6 @@ THE SOFTWARE.
 package cmd
 
 import (
-	"os"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -44,36 +42,10 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
-
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is ./config.yaml)")
 	rootCmd.PersistentFlags().String("logLevel", "info", "")
 	err := viper.BindPFlag("logLevel", rootCmd.PersistentFlags().Lookup("logLevel"))
 	if err != nil {
 		panic(err)
 	}
-}
-
-func initConfig() {
-	if cfgFile != "" {
-		viper.SetConfigFile(cfgFile)
-	} else {
-		viper.AddConfigPath(".")
-		viper.SetConfigName("config")
-	}
-	var err error
-	if err = viper.ReadInConfig(); os.IsNotExist(err) {
-		logrus.WithError(err).Fatalln()
-	}
-	logrus.WithField("ConfigFile", viper.ConfigFileUsed()).Infoln("read in config")
-	cfg.LogLevel, err = logrus.ParseLevel(viper.GetString("logLevel"))
-	if err != nil {
-		logrus.WithError(err).Fatalln()
-	}
-	logrus.SetLevel(cfg.LogLevel)
-	if cfg.LogLevel >= logrus.DebugLevel {
-		logrus.WithField("Config", cfg).Debug()
-	}
-	logrus.SetFormatter(&logrus.TextFormatter{})
-	registerTransformers(viper.GetStringMapString("transformers"))
 }

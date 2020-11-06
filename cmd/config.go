@@ -22,58 +22,18 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"os"
+
 	"github.com/elonzh/trumpet/transformers"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
-// configCmd represents the config command
-var configCmd = &cobra.Command{
-	Use:   "config",
-	Short: "",
-	Long:  ``,
-}
-
-type Config struct {
-	LogLevel     logrus.Level
-	Transformers map[string]*transformers.Transformer
-}
-
-var (
-	cfg = &Config{
-		LogLevel:     logrus.InfoLevel,
-		Transformers: map[string]*transformers.Transformer{},
-	}
-)
-
-func registerTransformers(m map[string]string) {
-	for name, src := range m {
-		t, err := transformers.NewTransformer(name, src)
-		if err != nil {
-			logrus.WithError(err).WithField("Name", name).Fatalln("error when init Transformer")
-		}
-		if _, exists := cfg.Transformers[t.Name]; exists {
-			logrus.WithField("Name", name).Warnln("Transformer already exists")
-		}
-		cfg.Transformers[t.Name] = t
-	}
-}
-
-func init() {
-	builtinTransformers := map[string]string{
-		"feishu-to-dingtalk": `
-def transform(request):
-    msg_type = request["body"]["msg_type"]
-    body = {}
-    if msg_type == "text":
-        body = {
-            "msgtype": "text",
-            "text": {"content": request["body"]["content"]["text"]},
-        }
-    request["body"] = body
-    return request
-`,
-		"dingtalk-to-feishu": `
+var BuiltinTransformers = []*transformers.Transformer{
+	{
+		FileName: "builtin/dingtalk-to-feishu.star",
+		Src: `
 def transform(request):
     msg_type = request["body"]["msgtype"]
     body = {}
@@ -94,7 +54,106 @@ def transform(request):
     request["body"] = body
     return request
 `,
+	},
+	{
+		FileName: "builtin/feishu-to-dingtalk.star",
+		Src: `
+def transform(request):
+    msg_type = request["body"]["msg_type"]
+    body = {}
+    if msg_type == "text":
+        body = {
+            "msgtype": "text",
+            "text": {"content": request["body"]["content"]["text"]},
+        }
+    request["body"] = body
+    return request
+`,
+	},
+}
+
+type Config struct {
+	LogLevel        string
+	TransformersDir string
+	Transformers    []*transformers.Transformer
+
+	allTransformers []*transformers.Transformer
+	m               map[string]*transformers.Transformer
+}
+
+func (c *Config) LoadAllTransformers() {
+	allTransformers := make([]*transformers.Transformer, 0, len(BuiltinTransformers))
+	allTransformers = append(allTransformers, BuiltinTransformers...)
+	allTransformers = append(allTransformers, cfg.Transformers...)
+	if cfg.TransformersDir != "" {
+		trans, err := transformers.Load(cfg.TransformersDir)
+		if err != nil {
+			logrus.WithError(err).Fatalln()
+		}
+		allTransformers = append(allTransformers, trans...)
 	}
-	registerTransformers(builtinTransformers)
+	c.allTransformers = allTransformers
+
+	m := make(map[string]*transformers.Transformer, len(cfg.Transformers))
+	for _, t := range allTransformers {
+		if err := t.InitThread(); err != nil {
+			logrus.WithError(err).Fatalln()
+		}
+		if _, exists := m[t.Name]; exists {
+			logrus.WithField("Name", t.Name).Warnln("Transformer already exists")
+		}
+		m[t.Name] = t
+	}
+	c.m = m
+}
+
+func (c *Config) GetTransformer(name string) (*transformers.Transformer, bool) {
+	t, ok := c.m[name]
+	return t, ok
+}
+
+func initConfig() {
+	if cfgFile != "" {
+		viper.SetConfigFile(cfgFile)
+	} else {
+		viper.AddConfigPath(".")
+		viper.SetConfigName("config")
+	}
+	var err error
+	if err = viper.ReadInConfig(); os.IsNotExist(err) {
+		logrus.WithError(err).Fatalln()
+	}
+	logrus.WithField("ConfigFile", viper.ConfigFileUsed()).Infoln("read in config")
+	err = viper.Unmarshal(cfg)
+	if err != nil {
+		logrus.WithError(err).Fatalln("error when unmarshal config")
+	}
+	level, err := logrus.ParseLevel(cfg.LogLevel)
+	if err != nil {
+		logrus.WithError(err).Fatalln()
+	}
+	logrus.SetLevel(level)
+	if level >= logrus.DebugLevel {
+		logrus.WithField("Config", cfg).Debug()
+	}
+
+	cfg.LoadAllTransformers()
+}
+
+var (
+	cfg = &Config{
+		LogLevel: logrus.InfoLevel.String(),
+	}
+)
+
+// configCmd represents the config command
+var configCmd = &cobra.Command{
+	Use:   "config",
+	Short: "",
+	Long:  ``,
+}
+
+func init() {
 	rootCmd.AddCommand(configCmd)
+	cobra.OnInitialize(initConfig)
 }

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -14,6 +16,7 @@ import (
 )
 
 const (
+	FileSuffix            = ".star"
 	transformFunctionName = "transform"
 	headerKey             = starlark.String("header")
 	bodyKey               = starlark.String("body")
@@ -36,13 +39,40 @@ func init() {
 
 type Transformer struct {
 	Name      string
-	src       interface{}
+	FileName  string
+	Src       interface{}
 	thread    *starlark.Thread
 	transFunc starlark.Value
 }
 
 func (t *Transformer) String() string {
-	return fmt.Sprintf("Transformer{Name: %s}", t.Name)
+	return fmt.Sprintf("Transformer{Name: %s, FileName: %s}", t.Name, t.FileName)
+}
+
+func (t *Transformer) InitThread() error {
+	if t.Name == "" {
+		t.Name = strings.TrimSuffix(filepath.Base(t.FileName), FileSuffix)
+	}
+	if err := validateName(t.Name); err != nil {
+		return err
+	}
+	t.thread = &starlark.Thread{
+		Name: t.Name,
+	}
+	predeclared := starlark.StringDict{
+		starlarkjson.Module.Name: starlarkjson.Module,
+		"struct":                 starlark.NewBuiltin("struct", starlarkstruct.Make),
+	}
+	globals, err := starlark.ExecFile(t.thread, t.FileName, t.Src, predeclared)
+	if err != nil {
+		return err
+	}
+	transFunc, ok := globals[transformFunctionName]
+	if !ok {
+		return fmt.Errorf("function `transformer` not found")
+	}
+	t.transFunc = transFunc
+	return nil
 }
 
 func (t *Transformer) requestToStarDict(req *http.Request) (*starlark.Dict, error) {
@@ -128,30 +158,33 @@ func validateName(s string) error {
 	return fmt.Errorf("%s is not a valid url slug as transformer name", s)
 }
 
-func NewTransformer(name string, src interface{}) (*Transformer, error) {
-	if err := validateName(name); err != nil {
-		return nil, err
-	}
-	thread := &starlark.Thread{
-		Name: name,
-	}
-	predeclared := starlark.StringDict{
-		starlarkjson.Module.Name: starlarkjson.Module,
-		"struct":                 starlark.NewBuiltin("struct", starlarkstruct.Make),
-	}
-	globals, err := starlark.ExecFile(thread, name, src, predeclared)
+func Load(dir string) ([]*Transformer, error) {
+	dir, err := filepath.Abs(dir)
 	if err != nil {
 		return nil, err
 	}
-	transFunc, ok := globals[transformFunctionName]
-	if !ok {
-		return nil, fmt.Errorf("transformer not found")
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return nil, err
 	}
-	t := &Transformer{
-		Name:      name,
-		src:       src,
-		thread:    thread,
-		transFunc: transFunc,
+	rv := make([]*Transformer, 0, len(files))
+	for _, f := range files {
+		logEntry := logrus.WithFields(logrus.Fields{
+			"Dir":      dir,
+			"FileName": f.Name(),
+		})
+
+		if f.IsDir() {
+			logEntry.Debugln("is a dir, ignore")
+			continue
+		}
+		if strings.HasSuffix(f.Name(), FileSuffix) {
+			filename := path.Join(dir, f.Name())
+			rv = append(rv, &Transformer{FileName: filename})
+			logEntry.Debugf("file loaded")
+		} else {
+			logEntry.Debugf("file name does not have suffix `%s`", FileSuffix)
+		}
 	}
-	return t, nil
+	return rv, nil
 }
