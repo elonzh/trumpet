@@ -50,7 +50,7 @@ release:
 
   # If set to true, will mark the release as not ready for production.
   # Default is false.
-  prerelease: true
+  prerelease: false
 
   # You can change the name of the GitHub release.
   # This is parsed with the Go template engine and the following variables
