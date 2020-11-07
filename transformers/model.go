@@ -38,9 +38,9 @@ func init() {
 }
 
 type Transformer struct {
-	Slug      string
-	FileName  string
-	Src       interface{}
+	Slug      string      `yaml:"slug"`
+	FileName  string      `yaml:"fileName"`
+	Src       interface{} `yaml:"src"`
 	thread    *starlark.Thread
 	transFunc starlark.Value
 }

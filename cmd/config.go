@@ -31,9 +31,9 @@ import (
 )
 
 type Config struct {
-	LogLevel        string
-	TransformersDir string
-	Transformers    []*transformers.Transformer
+	LogLevel        string                      `yaml:"logLevel"`
+	TransformersDir string                      `yaml:"transformersDir"`
+	Transformers    []*transformers.Transformer `yaml:"transformers"`
 
 	allTransformers []*transformers.Transformer
 	m               map[string]*transformers.Transformer
