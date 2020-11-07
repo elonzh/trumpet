@@ -62,13 +62,13 @@ func newRouter(cfg *Config) *gin.Engine {
 			c.String(http.StatusBadRequest, "currently we only accept `%s` content", binding.MIMEJSON)
 			return
 		}
-		transformerName := c.Param("transformer")
+		transformerSlug := c.Param("transformer")
 		_, err := url.Parse(c.Query(realWebHookQuery))
 		if err != nil {
 			c.String(http.StatusBadRequest, err.Error())
 			return
 		}
-		transformer, ok := cfg.GetTransformer(transformerName)
+		transformer, ok := cfg.GetTransformer(transformerSlug)
 		if !ok {
 			c.String(http.StatusNotFound, "no such transformer `%s`", transformer)
 			return

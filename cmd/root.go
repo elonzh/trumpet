@@ -22,7 +22,9 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -37,9 +39,14 @@ func newRootCmd(version string) *cobra.Command {
 		Short:   "🎺simple webhook message transform server",
 		Long:    ``,
 	}
-	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is ./config.yaml)")
+	wd, err := os.Getwd()
+	if err != nil {
+		logrus.WithError(err).Fatalln()
+	}
+	defaultCfgFile := filepath.Join(wd, "config.yaml")
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", fmt.Sprintf("config file(default is %s)", defaultCfgFile))
 	rootCmd.PersistentFlags().String("logLevel", "info", "")
-	err := viper.BindPFlag("logLevel", rootCmd.PersistentFlags().Lookup("logLevel"))
+	err = viper.BindPFlag("logLevel", rootCmd.PersistentFlags().Lookup("logLevel"))
 	if err != nil {
 		panic(err)
 	}
@@ -47,6 +54,7 @@ func newRootCmd(version string) *cobra.Command {
 	cfg := initConfig(cfgFile)
 	rootCmd.AddCommand(newServerCmd(cfg))
 	rootCmd.AddCommand(newConfigCmd(cfg))
+	rootCmd.AddCommand(newTransformerCmd(cfg))
 	return rootCmd
 }
 

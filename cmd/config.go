@@ -27,51 +27,8 @@ import (
 	"github.com/elonzh/trumpet/transformers"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
 )
-
-var BuiltinTransformers = []*transformers.Transformer{
-	{
-		FileName: "builtin/dingtalk-to-feishu.star",
-		Src: `
-def transform(request):
-    msg_type = request["body"]["msgtype"]
-    body = {}
-    if msg_type == "text":
-        body = {
-            "msg_type": "text",
-            "content": {"text": request["body"]["text"]["content"]},
-        }
-    elif msg_type == "markdown":
-        body = {"msg_type": "interactive", "card": {"elements": []}}
-        title = request["body"]["markdown"].get("title")
-        if title:
-            body["card"]["header"] = {"title": {"content": title, "tag": "plain_text"}}
-        text = request["body"]["markdown"].get("text", "")
-        body["card"]["elements"].append(
-            {"tag": "div", "text": {"content": text, "tag": "lark_md"}}
-        )
-    request["body"] = body
-    return request
-`,
-	},
-	{
-		FileName: "builtin/feishu-to-dingtalk.star",
-		Src: `
-def transform(request):
-    msg_type = request["body"]["msg_type"]
-    body = {}
-    if msg_type == "text":
-        body = {
-            "msgtype": "text",
-            "text": {"content": request["body"]["content"]["text"]},
-        }
-    request["body"] = body
-    return request
-`,
-	},
-}
 
 type Config struct {
 	LogLevel        string
@@ -100,16 +57,16 @@ func (c *Config) LoadAllTransformers() {
 		if err := t.InitThread(); err != nil {
 			logrus.WithError(err).Fatalln()
 		}
-		if _, exists := m[t.Name]; exists {
-			logrus.WithField("Name", t.Name).Warnln("Transformer already exists")
+		if _, exists := m[t.Slug]; exists {
+			logrus.WithField("Slug", t.Slug).Warnln("Transformer already exists")
 		}
-		m[t.Name] = t
+		m[t.Slug] = t
 	}
 	c.m = m
 }
 
-func (c *Config) GetTransformer(name string) (*transformers.Transformer, bool) {
-	t, ok := c.m[name]
+func (c *Config) GetTransformer(slug string) (*transformers.Transformer, bool) {
+	t, ok := c.m[slug]
 	return t, ok
 }
 
@@ -124,7 +81,7 @@ func newConfigCmd(cfg *Config) *cobra.Command {
 	showCmd := &cobra.Command{
 		Use: "show",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			bs, err := yaml.Marshal(viper.AllSettings())
+			bs, err := yaml.Marshal(cfg)
 			if err != nil {
 				return err
 			}
@@ -132,14 +89,6 @@ func newConfigCmd(cfg *Config) *cobra.Command {
 			return nil
 		},
 	}
-	showCmd.AddCommand(&cobra.Command{
-		Use: "transformers",
-		Run: func(cmd *cobra.Command, args []string) {
-			for _, t := range cfg.GetAllTransformers() {
-				fmt.Println(t.Sprint())
-			}
-		},
-	})
 	configCmd.AddCommand(showCmd)
 	return configCmd
 }

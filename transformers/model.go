@@ -18,7 +18,7 @@ import (
 const (
 	FileSuffix            = ".star"
 	transformFunctionName = "transform"
-	headerKey             = starlark.String("header")
+	headersKey            = starlark.String("headers")
 	bodyKey               = starlark.String("body")
 )
 
@@ -38,7 +38,7 @@ func init() {
 }
 
 type Transformer struct {
-	Name      string
+	Slug      string
 	FileName  string
 	Src       interface{}
 	thread    *starlark.Thread
@@ -46,7 +46,7 @@ type Transformer struct {
 }
 
 func (t *Transformer) String() string {
-	return fmt.Sprintf("Transformer{Name: %s, FileName: %s}", t.Name, t.FileName)
+	return fmt.Sprintf("Transformer{Slug: %s, FileName: %s}", t.Slug, t.FileName)
 }
 
 func (t *Transformer) Sprint() string {
@@ -54,14 +54,14 @@ func (t *Transformer) Sprint() string {
 }
 
 func (t *Transformer) InitThread() error {
-	if t.Name == "" {
-		t.Name = strings.TrimSuffix(filepath.Base(t.FileName), FileSuffix)
+	if t.Slug == "" {
+		t.Slug = strings.TrimSuffix(filepath.Base(t.FileName), FileSuffix)
 	}
-	if err := validateName(t.Name); err != nil {
+	if err := validateSlug(t.Slug); err != nil {
 		return err
 	}
 	t.thread = &starlark.Thread{
-		Name: t.Name,
+		Name: t.Slug,
 	}
 	predeclared := starlark.StringDict{
 		starlarkjson.Module.Name: starlarkjson.Module,
@@ -100,7 +100,7 @@ func (t *Transformer) requestToStarDict(req *http.Request) (*starlark.Dict, erro
 		return nil, err
 	}
 	starReq := starlark.NewDict(2)
-	err = starReq.SetKey(headerKey, starHeader)
+	err = starReq.SetKey(headersKey, starHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -112,9 +112,9 @@ func (t *Transformer) requestToStarDict(req *http.Request) (*starlark.Dict, erro
 }
 
 func (t *Transformer) updateRequestFromStarDict(req *http.Request, data *starlark.Dict) error {
-	v, found, err := data.Get(headerKey)
+	v, found, err := data.Get(headersKey)
 	if !found || err != nil {
-		return fmt.Errorf("error when get `%s` from StarDict, found %t, error %w", headerKey, found, err)
+		return fmt.Errorf("error when get `%s` from StarDict, found %t, error %w", headersKey, found, err)
 	}
 	newHeader := http.Header{}
 	for _, item := range v.(*starlark.Dict).Items() {
@@ -153,13 +153,13 @@ func (t *Transformer) Exec(req *http.Request) (*http.Request, error) {
 	return newReq, nil
 }
 
-var namePattern = regexp.MustCompile("^[a-z0-9]+(?:-[a-z0-9]+)*$")
+var slugPattern = regexp.MustCompile("^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
-func validateName(s string) error {
-	if namePattern.MatchString(s) {
+func validateSlug(s string) error {
+	if slugPattern.MatchString(s) {
 		return nil
 	}
-	return fmt.Errorf("%s is not a valid url slug as transformer name", s)
+	return fmt.Errorf("%s is not a valid url slug as transformer slug", s)
 }
 
 func Load(dir string) ([]*Transformer, error) {
