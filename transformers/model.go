@@ -49,6 +49,10 @@ func (t *Transformer) String() string {
 	return fmt.Sprintf("Transformer{Name: %s, FileName: %s}", t.Name, t.FileName)
 }
 
+func (t *Transformer) Sprint() string {
+	return fmt.Sprintf("%s\nSrc:\n%s", t.String(), t.Src)
+}
+
 func (t *Transformer) InitThread() error {
 	if t.Name == "" {
 		t.Name = strings.TrimSuffix(filepath.Base(t.FileName), FileSuffix)

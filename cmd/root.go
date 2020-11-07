@@ -29,18 +29,12 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	cfg = &Config{
-		LogLevel: logrus.InfoLevel.String(),
-	}
-)
-
 func newRootCmd(version string) *cobra.Command {
 	var cfgFile string
 	var rootCmd = &cobra.Command{
 		Version: version,
 		Use:     "trumpet",
-		Short:   "🎺simple webhook transform server",
+		Short:   "🎺simple webhook message transform server",
 		Long:    ``,
 	}
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is ./config.yaml)")
@@ -50,10 +44,9 @@ func newRootCmd(version string) *cobra.Command {
 		panic(err)
 	}
 
-	cobra.OnInitialize(func() {
-		initConfig(cfgFile)
-	})
-	rootCmd.AddCommand(serveCmd)
+	cfg := initConfig(cfgFile)
+	rootCmd.AddCommand(newServerCmd(cfg))
+	rootCmd.AddCommand(newConfigCmd(cfg))
 	return rootCmd
 }
 
@@ -64,7 +57,7 @@ func Execute(version string) {
 	}
 }
 
-func initConfig(cfgFile string) {
+func initConfig(cfgFile string) *Config {
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {
@@ -75,7 +68,11 @@ func initConfig(cfgFile string) {
 	if err = viper.ReadInConfig(); os.IsNotExist(err) {
 		logrus.WithError(err).Fatalln()
 	}
-	logrus.WithField("ConfigFile", viper.ConfigFileUsed()).Infoln("read in config")
+	logrus.WithField("ConfigFile", viper.ConfigFileUsed()).Debugln("read in config")
+
+	cfg := &Config{
+		LogLevel: logrus.InfoLevel.String(),
+	}
 	err = viper.Unmarshal(cfg)
 	if err != nil {
 		logrus.WithError(err).Fatalln("error when unmarshal config")
@@ -90,4 +87,5 @@ func initConfig(cfgFile string) {
 	}
 
 	cfg.LoadAllTransformers()
+	return cfg
 }

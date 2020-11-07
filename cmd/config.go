@@ -22,8 +22,13 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/elonzh/trumpet/transformers"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"gopkg.in/yaml.v2"
 )
 
 var BuiltinTransformers = []*transformers.Transformer{
@@ -80,9 +85,9 @@ type Config struct {
 func (c *Config) LoadAllTransformers() {
 	allTransformers := make([]*transformers.Transformer, 0, len(BuiltinTransformers))
 	allTransformers = append(allTransformers, BuiltinTransformers...)
-	allTransformers = append(allTransformers, cfg.Transformers...)
-	if cfg.TransformersDir != "" {
-		trans, err := transformers.Load(cfg.TransformersDir)
+	allTransformers = append(allTransformers, c.Transformers...)
+	if c.TransformersDir != "" {
+		trans, err := transformers.Load(c.TransformersDir)
 		if err != nil {
 			logrus.WithError(err).Fatalln()
 		}
@@ -90,7 +95,7 @@ func (c *Config) LoadAllTransformers() {
 	}
 	c.allTransformers = allTransformers
 
-	m := make(map[string]*transformers.Transformer, len(cfg.Transformers))
+	m := make(map[string]*transformers.Transformer, len(c.Transformers))
 	for _, t := range allTransformers {
 		if err := t.InitThread(); err != nil {
 			logrus.WithError(err).Fatalln()
@@ -106,4 +111,35 @@ func (c *Config) LoadAllTransformers() {
 func (c *Config) GetTransformer(name string) (*transformers.Transformer, bool) {
 	t, ok := c.m[name]
 	return t, ok
+}
+
+func (c *Config) GetAllTransformers() []*transformers.Transformer {
+	return c.allTransformers
+}
+
+func newConfigCmd(cfg *Config) *cobra.Command {
+	configCmd := &cobra.Command{
+		Use: "config",
+	}
+	showCmd := &cobra.Command{
+		Use: "show",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			bs, err := yaml.Marshal(viper.AllSettings())
+			if err != nil {
+				return err
+			}
+			fmt.Println(string(bs))
+			return nil
+		},
+	}
+	showCmd.AddCommand(&cobra.Command{
+		Use: "transformers",
+		Run: func(cmd *cobra.Command, args []string) {
+			for _, t := range cfg.GetAllTransformers() {
+				fmt.Println(t.Sprint())
+			}
+		},
+	})
+	configCmd.AddCommand(showCmd)
+	return configCmd
 }
